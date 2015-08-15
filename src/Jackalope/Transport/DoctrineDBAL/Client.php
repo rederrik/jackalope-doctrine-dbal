@@ -671,7 +671,7 @@ class Client extends BaseTransport implements QueryTransport, WritingInterface, 
                     'values' => $values,
                 );
 
-                if (!empty($resultSetUuids[$referenceEl->nodeValue])) {
+                if (isset($resultSetUuids[$referenceEl->nodeValue])) {
                     $referenceElsToRemap[] = array($referenceEl, $newPath, $row['type'], $propsData);
                 }
             }
@@ -738,12 +738,12 @@ class Client extends BaseTransport implements QueryTransport, WritingInterface, 
     /**
      * Actually write the node into the database
      *
-     * @param string  $uuid      node uuid
-     * @param string  $path      absolute path of the node
-     * @param string  $type      node type
-     * @param boolean $isNewNode new nodes to insert (true) or existing node to update (false)
-     * @param array   $props
-     * @param array   $propsData
+     * @param string     $uuid      node uuid
+     * @param string     $path      absolute path of the node
+     * @param string     $type      node type name
+     * @param boolean    $isNewNode new nodes to insert (true) or existing node to update (false)
+     * @param Property[] $props
+     * @param array      $propsData
      *
      * @return boolean|string
      *
@@ -823,7 +823,19 @@ class Client extends BaseTransport implements QueryTransport, WritingInterface, 
             $this->syncBinaryData($nodeId, $propsData['binaryData']);
         }
 
-        if (!empty($propsData['references'])) {
+        $needSyncReferences = !empty($propsData['references']);
+        if (!$needSyncReferences) {
+            foreach ($props as $property) {
+                if (in_array($property->getType(), array(PropertyType::REFERENCE, PropertyType::WEAKREFERENCE))) {
+                    // there are no references from this node anymore, which means there is a multivalue
+                    // reference property with an empty array. need to sync to remove previous references
+                    $needSyncReferences = true;
+                    break;
+                }
+            }
+        }
+
+        if ($needSyncReferences) {
             $this->referencesToUpdate[$nodeId] = array('path' => $path, 'properties' => $propsData['references']);
         }
 
@@ -1074,7 +1086,6 @@ class Client extends BaseTransport implements QueryTransport, WritingInterface, 
                 break;
         }
     }
-    
 
     /**
      * Seperate properties array into an xml and binary data.
