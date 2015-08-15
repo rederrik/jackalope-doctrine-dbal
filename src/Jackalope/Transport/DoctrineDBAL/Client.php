@@ -826,7 +826,11 @@ class Client extends BaseTransport implements QueryTransport, WritingInterface, 
         $needSyncReferences = !empty($propsData['references']);
         if (!$needSyncReferences) {
             foreach ($props as $property) {
-                if (in_array($property->getType(), array(PropertyType::REFERENCE, PropertyType::WEAKREFERENCE))) {
+                if (true || // maybe we just have to always sync?
+                    $property->isMultiple()
+                    && $property->isModified()
+                    && in_array($property->getType(), array(PropertyType::REFERENCE, PropertyType::WEAKREFERENCE))
+                ) {
                     // there are no references from this node anymore, which means there is a multivalue
                     // reference property with an empty array. need to sync to remove previous references
                     $needSyncReferences = true;
